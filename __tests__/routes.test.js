@@ -64,4 +64,36 @@ describe('Routes', () => {
     expect(recipe).toBeDefined();
     expect(recipe.title).toBe(newRecipe.title);
   });
+
+  test('POST /recipes/:id/delete should delete a recipe', async () => {
+    const createResult = await db.run(
+      'INSERT INTO recipes (title, ingredients, method) VALUES (?, ?, ?)',
+      ['Recipe To Delete', 'Ingredient 1', 'Step 1']
+    );
+
+    const response = await request(app).post(`/recipes/${createResult.lastID}/delete`);
+
+    expect(response.status).toBe(302);
+    expect(response.headers.location).toBe('/recipes');
+
+    const deletedRecipe = await db.get('SELECT * FROM recipes WHERE id = ?', [createResult.lastID]);
+    expect(deletedRecipe).toBeUndefined();
+  });
+
+  test('POST /recipes/:id/delete should keep other recipes', async () => {
+    const firstRecipe = await db.run(
+      'INSERT INTO recipes (title, ingredients, method) VALUES (?, ?, ?)',
+      ['Delete Me', 'Ingredient A', 'Step A']
+    );
+    const secondRecipe = await db.run(
+      'INSERT INTO recipes (title, ingredients, method) VALUES (?, ?, ?)',
+      ['Keep Me', 'Ingredient B', 'Step B']
+    );
+
+    await request(app).post(`/recipes/${firstRecipe.lastID}/delete`);
+
+    const remainingRecipe = await db.get('SELECT * FROM recipes WHERE id = ?', [secondRecipe.lastID]);
+    expect(remainingRecipe).toBeDefined();
+    expect(remainingRecipe.title).toBe('Keep Me');
+  });
 });
